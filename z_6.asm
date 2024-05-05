@@ -1,9 +1,8 @@
 extern io_print_dec
 section .data
-    one dq 1
     inx dq 0; 
     ipow dq 0;
-    three dd 3 
+    three dq 3.0 
 
 section .text
 global f1; 
@@ -11,40 +10,43 @@ global f2;
 global f3; 
 global main
 
-; функция 2^x+1
+; функция 2^x+1 функция работает с модулями!!!
 f1:
     push ebp; 
     mov ebp, esp; 
     sub esp, 4; 
     
     finit 
-    fld qword[ebp+8]; загружаем х
-    fld qword[ebp+8]; дважды для сравнения
-    frndint; округление x
+    ;fld qword[ebp+8]; st(0) = x      загружаем х
+    fldpi; загружаем х              
+    fld st0; st(0) = st(1) = x      дважды для сравнения
+    frndint; ST(0)=[ST(0)]      округление x
     
     fcomi; сравниваем x с его округлением
-    jle .then
-    fisub dword[one]; если закруглили в большую сторону - вычитаем 1
+    jge .then
+    fld1
+    fsub; если закруглили в большую сторону - вычитаем 1
     
 .then:
-    ;fst dword[inx]; сохраняем целую часть х
-    fsub; x - [x]
+    fxch
+    fsub st1; x - [x]
+    fxch
     fld1; 
     fscale; вычисляет 2^x, где х - целочисленное
     fstp qword[ipow]; сохраняем значение 2^x
-    fstp; удаляем 1. Теперь на поверхности лежит x - [x]
+    fxch
     f2xm1; 2^(x - [x]) - 1
-    fadd qword[one]; 2^(x - [x])
+    fld1
+    fadd; 2^(x - [x])
     
-    fadd dword[ipow]; 2^x
-    fadd qword[one]; 2^x + 1
+    fadd qword[ipow]; 2^x
+    fld1
+    fadd ; 2^x + 1
     
     
     fstp qword[inx]
-    mov eax, dword[inx]; 
-    call io_print_dec
-    
-    
+
+   
     add esp, 4; 
     leave; 
     ret; 
@@ -57,21 +59,14 @@ f2:
     
     finit 
     fld dword[ebp+8]; загружаем х
-    fld dword[ebp+8]; дважды для умножения
+    ;fldpi
+    fld st0; дважды для умножения
     
-    xor ebx, ebx; 
-    
-.loop:
-    cmp ebx, 4; 
-    je .out
-    
-    fmul; ST(1) = ST(0) * ST(1);
-    
-    inc ebx 
-    jmp .loop
+    fmul st0, st1; x^2
+    fmul st0, st1; x^3
+    fmul st0, st1; x^4
+    fmulp; x^5
 
-.out:
-    fstp; на поверхности лежит x^5
     add esp, 4; 
     leave; 
     ret;
@@ -83,9 +78,13 @@ f3:
     sub esp, 4;
     finit
     
-    fld dword[one]; 
-    fsub dword[ebp+8]; (1 - x)
-    fld dword[three]; 
+    ;fldpi
+    fld qword[ebp+8]; (1 - x)
+    fld1; 
+    
+    fxch
+    fsub
+    fld qword[three]; 
     fdivp; (1 - x) / 3
     
     add esp, 4; 
@@ -94,8 +93,7 @@ f3:
     
 main:
     mov ebp, esp; for correct debugging
-    mov eax, 3; 
-    push eax; 
+     
     call f1
     
     xor eax, eax
